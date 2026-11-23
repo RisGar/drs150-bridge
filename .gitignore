@@ -11,3 +11,5 @@ page.jpg
 page.raw
 page.png
 page.meta
+.direnv/
+.envrc

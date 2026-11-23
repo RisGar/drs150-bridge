@@ -1,4 +1,4 @@
-//! eSCL (AirScan) bridge for the Canon imageFORMULA DR-S150 — Rust port of `src/escl_server.py`.
+//! eSCL (AirScan) bridge for the Canon imageFORMULA DR-S150
 //!
 //! Image Capture on macOS only speaks eSCL/AirScan, while Canon's macOS driver is TWAIN-only.
 //! This daemon advertises a virtual AirScan scanner over Bonjour and services each scan by
@@ -298,7 +298,13 @@ fn engine_command() -> Command {
     cmd.env("DRS150_SPOOL", spool())
         .env("DRS150_LOG_DIR", log_dir())
         .env("DRS150_SHIM", shim_path())
-        .env("DRS150_DRIVER_DIR", driver_bundle().parent().map(Path::to_path_buf).unwrap_or_default());
+        .env(
+            "DRS150_DRIVER_DIR",
+            driver_bundle()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default(),
+        );
     cmd
 }
 
@@ -324,7 +330,10 @@ fn device_present() -> bool {
         .map(|s| s.success())
         .unwrap_or(false);
     *cache.lock().unwrap() = Some((present, now()));
-    logln!("device: scanner {}", if present { "present" } else { "absent" });
+    logln!(
+        "device: scanner {}",
+        if present { "present" } else { "absent" }
+    );
     present
 }
 
@@ -373,7 +382,11 @@ fn provision_driver() -> Option<PathBuf> {
             logln!("driver: failed to prepare {}", bundle.display());
             return None;
         }
-        logln!("driver: prepared {} -> {}", bundle.display(), shim.display());
+        logln!(
+            "driver: prepared {} -> {}",
+            bundle.display(),
+            shim.display()
+        );
     }
     Some(bundle)
 }
@@ -450,7 +463,11 @@ fn page_jpeg(entry: &MetaPage, channels: u32) -> Option<PathBuf> {
     encoded.ok()?;
     drop(out);
     let size = fs::metadata(&jpg_path).ok()?.len();
-    logln!("scan: jpeg {} {}", jpg_path.file_name()?.to_string_lossy(), size);
+    logln!(
+        "scan: jpeg {} {}",
+        jpg_path.file_name()?.to_string_lossy(),
+        size
+    );
     Some(jpg_path)
 }
 
@@ -696,7 +713,9 @@ fn handle(mut request: tiny_http::Request) {
                 .active
                 .as_ref()
                 .and_then(|id| st.jobs.get(id))
-                .map(|j| now - j.ts < ACTIVE_TIMEOUT && j.state != "Completed" && j.state != "Aborted")
+                .map(|j| {
+                    now - j.ts < ACTIVE_TIMEOUT && j.state != "Completed" && j.state != "Aborted"
+                })
                 .unwrap_or(false);
             if busy {
                 let owner = st.active.clone().unwrap_or_default();
@@ -706,8 +725,9 @@ fn handle(mut request: tiny_http::Request) {
                 respond_empty(request, 503, vec![]);
                 return;
             }
-            st.jobs
-                .retain(|_, j| !(j.state == "Completed" || j.state == "Aborted") || now - j.ts < 120.0);
+            st.jobs.retain(|_, j| {
+                !(j.state == "Completed" || j.state == "Aborted") || now - j.ts < 120.0
+            });
             let jid = next_job_id();
             st.jobs.insert(
                 jid.clone(),
@@ -732,7 +752,10 @@ fn handle(mut request: tiny_http::Request) {
             respond_empty(
                 request,
                 201,
-                vec![header("Location", &format!("http://{host}/eSCL/ScanJobs/{jid}"))],
+                vec![header(
+                    "Location",
+                    &format!("http://{host}/eSCL/ScanJobs/{jid}"),
+                )],
             );
         }
         (Method::Delete, p) if p.starts_with("/eSCL/ScanJobs/") => {
@@ -807,7 +830,10 @@ fn handle(mut request: tiny_http::Request) {
                     let done = meta.done || !engine_alive();
                     logln!(
                         "scan: meta ok={} count={} dpi={} done={}",
-                        meta.ok, meta.count, meta.dpi, meta.done
+                        meta.ok,
+                        meta.count,
+                        meta.dpi,
+                        meta.done
                     );
                     let mut st = state().lock().unwrap();
                     if let Some(j) = st.jobs.get_mut(&jid) {
@@ -895,7 +921,12 @@ fn advertise() -> Option<mdns_sd::ServiceDaemon> {
     };
     match daemon.register(info) {
         Ok(()) => {
-            logln!("bonjour: registered {} on {}:{}", advertise_name(), host, port());
+            logln!(
+                "bonjour: registered {} on {}:{}",
+                advertise_name(),
+                host,
+                port()
+            );
             Some(daemon)
         }
         Err(e) => {
@@ -906,37 +937,6 @@ fn advertise() -> Option<mdns_sd::ServiceDaemon> {
 }
 
 // ---------------------------------------------------------------- main
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn colormode_parsing() {
-        assert_eq!(parse_colormode("<scan:ColorMode>RGB24</scan:ColorMode>"), "RGB24");
-        assert_eq!(parse_colormode("<pwg:ColorMode>Grayscale8</pwg:ColorMode>"), "Grayscale8");
-        assert_eq!(parse_colormode("<scan:Intent>TextAndGraphic</scan:Intent>"), "Grayscale8");
-    }
-
-    #[test]
-    fn encodes_grey_and_colour_pages_to_jpeg() {
-        let tmp = std::env::temp_dir().join(format!("drs150test{}", std::process::id()));
-        std::env::set_var("HOME", &tmp); // spool()/log_dir() hang off HOME
-        let dir = spool();
-        fs::create_dir_all(&dir).unwrap();
-
-        fs::write(dir.join("page-1.raw"), [0u8, 64, 128, 255, 0, 64, 128, 255]).unwrap();
-        let grey = MetaPage { file: "page-1.raw".into(), width: 4, height: 2 };
-        let jpg = page_jpeg(&grey, 1).expect("grey page encodes");
-        let bytes = fs::read(&jpg).unwrap();
-        assert_eq!(&bytes[..3], &[0xff, 0xd8, 0xff], "JPEG SOI marker");
-
-        fs::write(dir.join("page-2.raw"), [255u8, 0, 0, 0, 255, 0]).unwrap();
-        let colour = MetaPage { file: "page-2.raw".into(), width: 2, height: 1 };
-        let jpg = page_jpeg(&colour, 3).expect("colour page encodes");
-        assert!(fs::metadata(&jpg).unwrap().len() > 0);
-    }
-}
 
 fn main() {
     let _ = fs::create_dir_all(spool());
@@ -971,5 +971,53 @@ fn main() {
     for request in server.incoming_requests() {
         // the scan work blocks for a whole ADF pass, so it must never run on the accept loop
         thread::spawn(move || handle(request));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn colormode_parsing() {
+        assert_eq!(
+            parse_colormode("<scan:ColorMode>RGB24</scan:ColorMode>"),
+            "RGB24"
+        );
+        assert_eq!(
+            parse_colormode("<pwg:ColorMode>Grayscale8</pwg:ColorMode>"),
+            "Grayscale8"
+        );
+        assert_eq!(
+            parse_colormode("<scan:Intent>TextAndGraphic</scan:Intent>"),
+            "Grayscale8"
+        );
+    }
+
+    #[test]
+    fn encodes_grey_and_colour_pages_to_jpeg() {
+        let tmp = std::env::temp_dir().join(format!("drs150test{}", std::process::id()));
+        std::env::set_var("HOME", &tmp); // spool()/log_dir() hang off HOME
+        let dir = spool();
+        fs::create_dir_all(&dir).unwrap();
+
+        fs::write(dir.join("page-1.raw"), [0u8, 64, 128, 255, 0, 64, 128, 255]).unwrap();
+        let grey = MetaPage {
+            file: "page-1.raw".into(),
+            width: 4,
+            height: 2,
+        };
+        let jpg = page_jpeg(&grey, 1).expect("grey page encodes");
+        let bytes = fs::read(&jpg).unwrap();
+        assert_eq!(&bytes[..3], &[0xff, 0xd8, 0xff], "JPEG SOI marker");
+
+        fs::write(dir.join("page-2.raw"), [255u8, 0, 0, 0, 255, 0]).unwrap();
+        let colour = MetaPage {
+            file: "page-2.raw".into(),
+            width: 2,
+            height: 1,
+        };
+        let jpg = page_jpeg(&colour, 3).expect("colour page encodes");
+        assert!(fs::metadata(&jpg).unwrap().len() > 0);
     }
 }

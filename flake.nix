@@ -9,24 +9,41 @@
     };
   };
 
-  outputs = { self, nixpkgs, rust-overlay }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      rust-overlay,
+    }:
     let
       systems = [ "aarch64-darwin" ];
-      forAll = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs {
-        inherit system;
-        overlays = [ (import rust-overlay) ];
-      }));
+      forAllSystems =
+        f:
+        nixpkgs.lib.genAttrs systems (
+          system:
+          f (
+            import nixpkgs {
+              inherit system;
+              overlays = [ (import rust-overlay) ];
+            }
+          )
+        );
 
-      # Canon's driver is x86_64-only and runs under Rosetta, so the engine and the shim it
-      # loads must be x86_64 while the server stays native. rust-overlay gives us a Rust
-      # toolchain that ships the x86_64-apple-darwin std (nixpkgs' own rustc does not).
-      mkRust = pkgs: pkgs.rust-bin.stable.latest.default.override {
-        targets = [ "x86_64-apple-darwin" ];
-      };
+      # Canon's driver is x86_64-only and runs under Rosetta, so the engine and the shim it loads must be x86_64 while the server stays native
+      mkRust =
+        pkgs:
+        pkgs.rust-bin.stable.latest.default.override {
+          targets = [ "x86_64-apple-darwin" ];
+        };
 
-      mkPackages = pkgs:
+    in
+    {
+      packages = forAllSystems (
+        pkgs:
         let
-          rust = mkRust pkgs;
+          rust = pkgs.rust-bin.stable.latest.default.override {
+            targets = [ "x86_64-apple-darwin" ];
+          };
           rustPlatform = pkgs.makeRustPlatform {
             cargo = rust;
             rustc = rust;
@@ -44,7 +61,10 @@
             # buildRustPackage only cross-builds when the target is in the cargo flags.
             CARGO_BUILD_TARGET = "x86_64-apple-darwin";
             CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER = "${pkgs.clang}/bin/clang";
-            cargoBuildFlags = [ "--target" "x86_64-apple-darwin" ];
+            cargoBuildFlags = [
+              "--target"
+              "x86_64-apple-darwin"
+            ];
             doCheck = false; # the tests are host-targeted; `nix develop` runs them
             installPhase = ''
               mkdir -p $out/lib
@@ -85,25 +105,36 @@
           default = pkgs.symlinkJoin {
             pname = "drs150-bridge";
             inherit version;
-            paths = [ dsmshim escl-server drs150scan ];
+            paths = [
+              dsmshim
+              escl-server
+              drs150scan
+            ];
             meta = {
               description = "eSCL bridge for the Canon DR-S150 (drives the Canon TWAIN driver)";
               mainProgram = "escl-server";
             };
           };
-        };
-    in
-    {
-      packages = forAll mkPackages;
+        }
+      );
 
       # home-manager: `services.drs150-bridge.enable = true;`
-      homeModules.default = import ./nix/home-module.nix { inherit self; };
-      homeModules.drs150-bridge = self.homeModules.default;
+      homeModules.default = self.homeModules.drs150-bridge;
+      homeModules.drs150-bridge = import ./module.nix { inherit self; };
 
-      devShells = forAll (pkgs:
-        let rust = mkRust pkgs; in {
+      devShells = forAllSystems (
+        pkgs:
+        let
+          rust = mkRust pkgs;
+        in
+        {
           default = pkgs.mkShell {
-            packages = [ rust pkgs.clang pkgs.jq pkgs.curl ];
+            packages = [
+              rust
+              pkgs.clang
+              pkgs.jq
+              pkgs.curl
+            ];
             shellHook = ''
               echo "DR-S150 bridge — cargo $(cargo --version | cut -d' ' -f2)"
               echo "  build:  nix build .#default"
@@ -111,15 +142,8 @@
               echo "  deploy: home-manager services.drs150-bridge.enable = true"
             '';
           };
-        });
-
-      apps = forAll (pkgs: {
-        default = {
-          type = "app";
-          program = "${mkPackages pkgs.default}/bin/escl-server";
-        };
-      });
-
-      formatter = forAll (pkgs: pkgs.nixpkgs-fmt);
+        }
+      );
+      formatter = forAllSystems (pkgs: pkgs.nixpkgs-fmt);
     };
 }

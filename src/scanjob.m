@@ -3,8 +3,7 @@
  *
  * The driver (DRS150.ds) is a TWAIN data source. This tool:
  *   1. loads a *patched copy* of the driver that lives in this app's Resources
- *      (its DSM_Entry import is repointed at libdsmshim2.dylib, see
- * src/shim.c),
+ *      (its DSM_Entry import is repointed at libdsmshim2.dylib, see rust shim),
  *   2. opens Canon's own source manager (ApTWAIN, shipped with CaptureOnTouch),
  *   3. opens the device, configures it, starts a session,
  *   4. pulls *every* page the ADF holds: XFERREADY announces the first one,
@@ -54,25 +53,28 @@ static void L(const char *fmt, ...) {
   va_end(ap);
 }
 
-/* XDG base directories (macOS defaults: ~/.local/share, ~/.local/state). The Rust server
-   passes DRS150_SPOOL / DRS150_LOG_DIR explicitly; these fallbacks keep the engine usable
-   when it is run by hand. */
+/* XDG base directories (macOS defaults: ~/.local/share, ~/.local/state). The
+   Rust server passes DRS150_SPOOL / DRS150_LOG_DIR explicitly; these fallbacks
+   keep the engine usable when it is run by hand. */
 static NSString *homePath(void) {
   const char *h = getenv("HOME");
   return h ? [NSString stringWithUTF8String:h] : @"/tmp";
 }
 static NSString *xdgPath(const char *env, const char *fallback) {
   const char *v = getenv(env);
-  NSString *base = v ? [NSString stringWithUTF8String:v]
-                     : [homePath() stringByAppendingPathComponent:
-                                      [NSString stringWithUTF8String:fallback]];
+  NSString *base =
+      v ? [NSString stringWithUTF8String:v]
+        : [homePath() stringByAppendingPathComponent:
+                          [NSString stringWithUTF8String:fallback]];
   return [base stringByAppendingPathComponent:@"drs150-bridge"];
 }
 static NSString *appSupport(void) {
   return [xdgPath("XDG_DATA_HOME", ".local/share")
       stringByAppendingPathComponent:@"spool"];
 }
-static NSString *logDir(void) { return xdgPath("XDG_STATE_HOME", ".local/state"); }
+static NSString *logDir(void) {
+  return xdgPath("XDG_STATE_HOME", ".local/state");
+}
 
 static NSString *envString(const char *name) {
   const char *v = getenv(name);
@@ -397,8 +399,9 @@ static void logStatus(const char *what) {
 
 int main(int argc, char **argv) {
   @autoreleasepool {
-    /* --probe: open the data source and exit. Lets the server answer "is the scanner plugged
-       in?" cheaply instead of starting a scan that cannot work. */
+    /* --probe: open the data source and exit. Lets the server answer "is the
+       scanner plugged in?" cheaply instead of starting a scan that cannot work.
+     */
     BOOL probe = (argc > 1 && strcmp(argv[1], "--probe") == 0);
 
     [NSApplication sharedApplication];
@@ -415,11 +418,13 @@ int main(int argc, char **argv) {
                               withIntermediateDirectories:YES
                                                attributes:nil
                                                     error:nil];
-    /* A probe is a separate, tiny run: giving it its own log keeps it from truncating the
-       log of a scan that may be running at the same time. */
-    LOG = fopen([[logs stringByAppendingPathComponent:
-                             (probe ? @"probe.log" : @"scan-engine.log")] UTF8String],
-                "w");
+    /* A probe is a separate, tiny run: giving it its own log keeps it from
+       truncating the log of a scan that may be running at the same time. */
+    LOG = fopen(
+        [[logs stringByAppendingPathComponent:(probe ? @"probe.log"
+                                                     : @"scan-engine.log")]
+            UTF8String],
+        "w");
     alarm(probe ? 15 : 600);
     L("engine start: resources=%s probe=%d", [RES UTF8String], probe);
     NSString *modeFile = [SPOOL stringByAppendingPathComponent:@"mode.txt"];
@@ -453,8 +458,9 @@ int main(int argc, char **argv) {
     L("ApTWAIN=%p", (void *)F);
 
     /* our minimal source manager that forwards the driver's notifications */
-    NSString *shimPath = envString("DRS150_SHIM")
-                             ?: [RES stringByAppendingPathComponent:@"libdsmshim2.dylib"];
+    NSString *shimPath =
+        envString("DRS150_SHIM")
+            ?: [RES stringByAppendingPathComponent:@"libdsmshim2.dylib"];
     void *sh = dlopen([shimPath UTF8String], RTLD_LAZY | RTLD_GLOBAL);
     if (sh)
       shim_ready = (volatile int *)dlsym(sh, "shim_ready");
@@ -472,8 +478,9 @@ int main(int argc, char **argv) {
       strcpy((char *)APP->Manufacturer, " 1044FFCC35D84CBC86B6B0CC1B64595C");
       strcpy((char *)APP->ProductName, "CaptureOnTouch");
 
-      NSString *driverDir = envString("DRS150_DRIVER_DIR")
-                            ?: [RES stringByAppendingPathComponent:@"driver"];
+      NSString *driverDir =
+          envString("DRS150_DRIVER_DIR")
+              ?: [RES stringByAppendingPathComponent:@"driver"];
       CFStringRef dir = CFStringCreateWithCString(NULL, [driverDir UTF8String],
                                                   kCFStringEncodingUTF8);
       L("OPENDSM=%u",
@@ -492,7 +499,8 @@ int main(int argc, char **argv) {
         logStatus("OPENDS");
 
       if (probe) {
-        /* no session, no spool writes: just answer "can the driver see the scanner?" */
+        /* no session, no spool writes: just answer "can the driver see the
+         * scanner?" */
         L("probe: %s", opened == 0 ? "scanner present" : "scanner absent");
         if (opened == 0)
           L("CLOSEDS=%u",

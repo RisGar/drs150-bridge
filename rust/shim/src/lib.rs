@@ -1,6 +1,6 @@
 //! libdsmshim2 — a *minimal* TWAIN source manager for the Canon DR-S150 driver.
 //!
-//! Rust port of the original `src/shim.c`. Why this exists: the driver notifies its source
+//! Why this exists: the driver notifies its source
 //! manager (MSG_XFERREADY, device events) by calling `DSM_Entry()`. It imports that symbol from
 //! `/System/Library/Frameworks/TWAIN.framework`, which on recent macOS is a dead stub, so those
 //! notifications are lost. The build copies the driver, repoints that one import at this library
@@ -120,12 +120,19 @@ pub unsafe extern "C" fn DSM_Entry(
     msg: u16,
     pdata: *mut c_void,
 ) -> u16 {
-    write_volatile(addr_of_mut!(shim_calls), read_volatile(addr_of!(shim_calls)) + 1);
+    write_volatile(
+        addr_of_mut!(shim_calls),
+        read_volatile(addr_of!(shim_calls)) + 1,
+    );
 
     /* driver -> app notification */
     if dat == DAT_CALLBACK && msg == MSG_INVOKE_CALLBACK && !pdata.is_null() {
         let mut notif: u16 = 0;
-        std::ptr::copy_nonoverlapping((pdata as *const u8).add(16), &mut notif as *mut u16 as *mut u8, 2);
+        std::ptr::copy_nonoverlapping(
+            (pdata as *const u8).add(16),
+            &mut notif as *mut u16 as *mut u8,
+            2,
+        );
         write_volatile(addr_of_mut!(shim_lastmsg), notif as c_uint);
         logline(&format!("INVOKE_CALLBACK notif=0x{notif:04x}"));
         if notif == MSG_XFERREADY {
