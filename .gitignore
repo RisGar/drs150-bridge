@@ -1,0 +1,13 @@
+result
+result-*
+.reasonix/
+build/
+target/
+*.o
+*.dylib
+.DS_Store
+out.jpg
+page.jpg
+page.raw
+page.png
+page.meta
