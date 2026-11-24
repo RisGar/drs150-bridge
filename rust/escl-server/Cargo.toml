@@ -1,9 +1,9 @@
 [package]
 name = "escl-server"
-version = "0.2.0"
+version = "0.1.0"
 edition = "2021"
 description = "eSCL (AirScan) bridge for the Canon DR-S150, driving the ObjC scan engine"
-license = "MIT"
+license = "EUPL-1.2"
 
 [dependencies]
 tiny_http = "0.12"

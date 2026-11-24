@@ -9,24 +9,24 @@
 # host and the engine cannot load it.
 {
   callPackage,
+  lib,
   rustPlatform,
   symlinkJoin,
-  version ? "0.3.0",
 }:
 
 let
   rustArgs = {
-    inherit version rustPlatform;
+    inherit rustPlatform;
   };
 in
 rec {
   dsmshim = callPackage ./nix/dsmshim.nix rustArgs;
   escl-server = callPackage ./nix/escl-server.nix rustArgs;
-  drs150scan = callPackage ./nix/drs150scan.nix { inherit version; };
+  drs150scan = callPackage ./nix/drs150scan.nix { };
 
   default = symlinkJoin {
     pname = "drs150-bridge";
-    inherit version;
+    version = "0.1.0";
     paths = [
       dsmshim
       escl-server
@@ -34,6 +34,8 @@ rec {
     ];
     meta = {
       description = "eSCL bridge for the Canon DR-S150 (drives the Canon TWAIN driver)";
+      license = lib.licenses.eupl12;
+      platforms = lib.platforms.darwin;
       mainProgram = "escl-server";
     };
   };

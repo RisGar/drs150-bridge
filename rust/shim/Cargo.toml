@@ -3,7 +3,7 @@ name = "dsmshim"
 version = "0.1.0"
 edition = "2021"
 description = "Minimal TWAIN source manager for the Canon DR-S150 driver (CDylib)"
-license = "MIT"
+license = "EUPL-1.2"
 
 [lib]
 name = "dsmshim"

@@ -39,7 +39,7 @@
     in
     {
       # The derivations are plain `pkgs.callPackage` calls on the repo-root ./default.nix; the flake
-      # only supplies what nixpkgs cannot: the version and the x86_64-capable rustPlatform.
+      # only supplies what that file cannot take from nixpkgs: the x86_64-capable rustPlatform.
       packages = forAllSystems (
         pkgs:
         let
@@ -51,7 +51,6 @@
           # callPackage also hands back `override`/`overrideDerivation`, which are not derivations
           # and so are not allowed in a flake's `packages`; pick the four outputs explicitly.
           bridge = pkgs.callPackage ./. {
-            version = "0.3.0";
             inherit rustPlatform;
           };
         in

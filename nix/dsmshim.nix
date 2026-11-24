@@ -1,14 +1,15 @@
 # libdsmshim2 — minimal TWAIN source manager that the copied Canon driver imports `DSM_Entry`
 # from. Loaded by the x86_64 scan engine under Rosetta, so the dylib must be x86_64 too:
 # pass a `rustPlatform` whose toolchain has the `x86_64-apple-darwin` std (see ./default.nix).
-#
-#   pkgs.callPackage ./nix/dsmshim.nix { }
 {
+  lib,
   rustPlatform,
   clang,
-  version ? "0.3.0",
 }:
 
+let
+  version = (fromTOML (builtins.readFile ../rust/shim/Cargo.toml)).package.version;
+in
 rustPlatform.buildRustPackage {
   pname = "dsmshim";
   inherit version;
@@ -27,4 +28,9 @@ rustPlatform.buildRustPackage {
     install -m755 target/x86_64-apple-darwin/release/libdsmshim.dylib \
       $out/lib/libdsmshim2.dylib
   '';
+  meta = {
+    description = "Minimal TWAIN source manager for the Canon DR-S150 driver (CDylib)";
+    license = lib.licenses.eupl12;
+    platforms = lib.platforms.darwin;
+  };
 }

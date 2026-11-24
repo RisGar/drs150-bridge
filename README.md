@@ -227,4 +227,4 @@ on your machine; it does not redistribute them. Use at your own risk.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+EUPL-1.2 — see [LICENSE](LICENSE).

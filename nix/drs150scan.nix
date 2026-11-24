@@ -1,14 +1,12 @@
 # The scan engine: Objective-C, x86_64 (drives Canon's TWAIN driver under Rosetta).
-#
-#   pkgs.callPackage ./nix/drs150scan.nix { }
 {
+  lib,
   stdenv,
-  version ? "0.3.0",
 }:
 
 stdenv.mkDerivation {
   pname = "drs150scan";
-  inherit version;
+  version = "0.1.0";
   src = ../src;
   dontConfigure = true;
   buildPhase = ''
@@ -22,5 +20,9 @@ stdenv.mkDerivation {
     install -Dm755 drs150scan $out/bin/drs150scan
     runHook postInstall
   '';
-  meta.description = "Headless ADF scan engine for the Canon DR-S150";
+  meta = {
+    description = "Headless ADF scan engine for the Canon DR-S150";
+    license = lib.licenses.eupl12;
+    platforms = lib.platforms.darwin;
+  };
 }
