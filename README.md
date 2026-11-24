@@ -215,7 +215,6 @@ src/twain.h          minimal TWAIN definitions used by the engine
 rust/shim/           TWAIN source-manager shim (Rust cdylib, notification bridge)
 rust/escl-server/    eSCL 2.0 subset + Bonjour (Rust: tiny_http, image, mdns-sd)
 flake.nix            packages, dev shell, apps, home-manager module
-nix/home-module.nix  launchd user agent + XDG dirs + legacy-state cleanup
 scripts/smoke-test.sh  curl the eSCL surface, optionally drain the ADF
 docs/REVERSE-ENGINEERING.md   how the driver/DSM protocols were worked out
 ```

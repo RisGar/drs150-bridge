@@ -66,7 +66,6 @@
 
       # home-manager: `services.drs150-bridge.enable = true;`
       homeModules.default = self.homeModules.drs150-bridge;
-      homeModules.drs150-bridge = import ./module.nix { inherit self; };
 
       devShells = forAllSystems (
         pkgs:
