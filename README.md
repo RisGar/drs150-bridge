@@ -56,6 +56,23 @@ Three derivations, no host toolchain and no `rustup`:
 | `packages.dsmshim`     | Rust cdylib, **x86_64** | the driver's `DSM_Entry` import points at it; same architecture as the engine     |
 | `packages.escl-server` | Rust, native            | eSCL/HTTP + Bonjour (`tiny_http`, `image`, `mdns-sd`)                             |
 
+The derivations are plain `callPackage` functions — the repo-root [`default.nix`](default.nix)
+assembles them from the per-package files in [`nix/`](nix) — so they also work without the flake as
+long as your `pkgs` has `rust-overlay` applied:
+
+```nix
+let
+  # only the shim cares: it is dlopen-ed by the Rosetta (x86_64) engine
+  rust = pkgs.rust-bin.stable.latest.default.override {
+    targets = [ "x86_64-apple-darwin" ];
+  };
+  rustPlatform = pkgs.makeRustPlatform { cargo = rust; rustc = rust; };
+in
+# -> { dsmshim, escl-server, drs150scan, default }
+pkgs.callPackage /path/to/drs150-bridge { inherit rustPlatform; }
+# or one at a time: pkgs.callPackage /path/to/drs150-bridge/nix/escl-server.nix { }
+```
+
 Nothing about Canon's installation is baked into the store: the system driver stays untouched, and
 the server prepares a **patched copy** under `$XDG_DATA_HOME/drs150-bridge/driver/` at startup
 (copy → `install_name_tool` → ad-hoc `codesign`), reusing it until the system driver changes.
